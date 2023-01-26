@@ -1,0 +1,5 @@
+From: yonghao@wustl.edu
+To: holdenleungyh@gmail.com
+Subject: An ATAC-seq alignment Job done at server!
+Hi, this is my message, and I'm sending it to you!
+.
