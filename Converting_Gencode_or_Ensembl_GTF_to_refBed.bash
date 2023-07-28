@@ -1,14 +1,17 @@
 #!/bin/bash
-#Created 10/18/18 by Renee Sears
-##############################TO RUN#####################################
-##bash Converting_Gencode_or_Ensembl_GTF_to_refBed.bash <Gencode or Ensembl> <GTF File> <Optional Annotation File>##
+# https://github.com/lidaof/eg-react/blob/master/backend/scripts/Converting_Gencode_or_Ensembl_GTF_to_refBed.bash
+# Created 10/18/2018 by Renee Sears
+# Edited 02/10/2023 by Holden
+
+##############################PURPOSE####################################
+# this script convert gtf files generated from transcript de novo assembly (eg stringtie) to rebed files
+# for visualization on WashU epigenome browser
 #########################################################################
 
-#####################################################################
-#############Optional File Annotation Information####################
-#Must be in transcript_id description format                        #
-#Download from biomart the Transcript stable ID and Gene description#
-#####################################################################
+##############################TO RUN#####################################
+## bash Converting_Gencode_or_Ensembl_GTF_to_refBed.bash <Gencode or Ensembl> <GTF File> <Optional Annotation File>##
+## bash Convert_GTF_to_refBed.sh <GTF File>
+#########################################################################
 
 ###############################################################################
 ##Note after column 8 in the gtf spaces are used to work as a delimiter       #
@@ -16,40 +19,21 @@
 #Example: sed -i 's/ (1 of many)/_(1_of_many)/g' Danio_rerio.GRCz10.91.chr.gtf#
 ###############################################################################
 
-my_args=("$@")
-my_type=$1
-my_GTF=$2
+my_GTF=$1
 my_len=$#
 
-if [ "$my_type" != "Gencode" ] && [ "$my_type" != "Ensembl" ]
+if [ ! "$my_len" -eq "1" ] 
 then
-    echo "Run Script: Making_Renee_Gene_Bed.bash <Gencode or Ensembl> <GTF File> <Optional Annotation File>"
-    echo "Please Specify the GTF type as Gencode or Ensembl"
-    exit
-fi
-my_count=`expr $my_len - 1`
-echo "You have provided" $my_count "file(s)"
-if [ "$my_len" -eq "0" ]
-then
+    echo "please input ONE gtf file and run it as \`bash Convert_GTF_to_refBed.sh <GTF File>\`"
     exit
 fi
 
-#Make sure the files exist
+#Make sure the gtf file exist
 if [ ! -f $my_GTF ]; then
         echo $my_GTF" does not exist so exiting"
         exit
 fi
 
-if [ "$my_len" -eq "3" ]
-then
-    my_ANNO=$3
-    if [ ! -f $my_ANNO ]; then
-        echo $my_ANNO" does not exist so exiting"
-        exit
-    fi
-fi
-
-echo "ALL Files Exist, so moving forward"
 base=${my_GTF%.gtf}
 
 #Basic Format is chr, transript_start, transript_stop, translation_start,translation_stop, strand, gene_name, transcript_id, type, exons(including UTRs regions) start, exons(including UTRs regions) stops, additional gene info

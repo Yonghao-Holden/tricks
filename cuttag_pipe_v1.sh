@@ -2,7 +2,7 @@
 #!/usr/bin/awk
 # programmer: Holden
 #####################################################################
-# This is a full ChIP-seq pipeline to get all the way to peaks from a set of files.
+# This is a full CUT&TAG pipeline to get all the way to peaks from a set of files.
 # Setting of Bowtie2 and MACS2 comes from here: https://www.nature.com/articles/s41467-019-09982-5#Sec8 
 #####################################################################
 # bash /bar/yliang/tricks/chip_pipe.sh -f /scratch/yliang/share/for_xiaoyun/GSE124557_CUTTAG_K562_H3K27Ac_H3K4Me3/fastq -mq yes -g hg38 -i CUTTAG_K562_input_R1.fastq.gz -ml 15

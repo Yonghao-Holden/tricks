@@ -11,6 +11,8 @@
 # https://hpc.nih.gov/docs/job_dependencies.html
 ###################################################
 
+# bash /home/yonghao/tricks/wgbs_pipe_htcf_starter_v4.sh -i . -a yes
+
 #########################################################################################################################################################
 ## INPUT
 # Arguments to bash script to decide on various parameters
@@ -21,7 +23,7 @@ MAXJOBSALIGN=12 # Cores for each alignment
 ## only switch $ALLTOGETHER to yes if you have less then 3 samples to run. 
 ## If yes, it will submit jobs for ALL samples in your fastq folder to htcf, and each sample will have multiple jobs submitted at the same time.
 ## so it can easily take over the whole server if you have too many samples
-ALLTOGETHER=no 
+ALLTOGETHER=yes 
 PBAT=no
 #########################################################################################################################################################
 
@@ -90,11 +92,11 @@ done
 # 3. run bismark
 # (1) Get scripts from our sever
 # rsync -avFP /bar/yliang/tricks/wgbs_pipe_htcf*.sh yonghao@65.254.100.82:/home/yonghao/tricks/
-# bash /home/yonghao/tricks/wgbs_pipe_htcf_starter.sh -i . -a yes
+# bash /home/yonghao/tricks/wgbs_pipe_htcf_starter_v3.sh -i . -a yes
 
 # (2) Run bismark on each replicate and clean up (submit job one by one based on the generation of fincin.out)
 cd $INPUT_DIR
-if [[ $ALLTOGETHER == "no" ]]; then
+if [[ $ALLTOGETHER != "yes" ]]; then
     for FILE1 in ./fastq/*${READ1EXTENSION}
     do
         FILE2=${FILE1/R1/R2}
@@ -106,7 +108,7 @@ if [[ $ALLTOGETHER == "no" ]]; then
         ln -s ../../$FILE2 .
         cd ..
         echo "start $xbase bismark run"
-        bash /home/yonghao/tricks/wgbs_pipe_htcf_v1.sh --sample $xbase --genome $GENOME --input $PWD --max $MAXJOBSALIGN --pbat $PBAT
+        bash /home/yonghao/tricks/wgbs_pipe_htcf_v4.2.sh --sample $xbase --genome $GENOME --input $PWD --max $MAXJOBSALIGN --pbat $PBAT
         while true; do
             #FILENAME=`inotifywait -m --quiet --recursive -e create,modify,close,move --format '%f' ./`
             #if [[ $FILENAME =~ done-[0-9]{8}.out ]]; then
@@ -129,7 +131,7 @@ else
         ln -s ../../$FILE2 .
         cd ..
         echo "start $xbase bismark run"
-        bash /home/yonghao/tricks/wgbs_pipe_htcf_v1.sh --sample $xbase --genome $GENOME --input $PWD --max $MAXJOBSALIGN --pbat $PBAT
+        bash /home/yonghao/tricks/wgbs_pipe_htcf_v4.2.sh --sample $xbase --genome $GENOME --input $PWD --max $MAXJOBSALIGN --pbat $PBAT
         # sbatch /scratch/twlab/yliang/juicer_scripts/run-juicer-hg38.sbatch HiC_93VU147T_HPV_BRep1_TRep1
         cd ..
     done    

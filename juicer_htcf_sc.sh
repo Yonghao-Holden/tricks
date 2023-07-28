@@ -2,8 +2,6 @@
 #!/usr/bin/awk
 # programmer: Holden Liang
 # Run it in the base folder (~/Hi-C), under which is ~/Hi-C/fastq. Put ALL fastq files under this fastq folder.
-# bash /home/yonghao/tricks/juicer_htcf_v2.sh -i /scratch/twlab/yliang/HNSCC/data/hic/UMSCC47 -r _Lane1_R1.fastq.gz -g hg38 -a yes
-# bash /home/yonghao/tricks/juicer_htcf_v2.sh -i  /scratch/twlab/yliang/Oocyte_scHi-C/data/lowinputHi-C_test7_92SN  -g mm10 -a yes -e Arima
 ###################################################
 # run this script on htcf to generate .hic files using juicer
 # Written by Yonghao Liang(Holden)
@@ -19,8 +17,6 @@ INPUT_DIR="." # it should have a fastq folder in it
 READ1EXTENSION="_R1.fastq.gz"
 GENOME="hg38"
 ENZYME="MboI"
-
-ALLTOGETHER=no 
 
 #########################################################################################################################################################
 
@@ -42,10 +38,6 @@ case $key in
     ;;
     -e|--enzyme)
     ENZYME="$2"
-    shift # past argument
-    ;;
-    -a|--alltogether)
-    ALLTOGETHER="$2"
     shift # past argument
     ;;
     --default)
@@ -78,58 +70,44 @@ done
 ##############################################################
 # 3. run juicer
 # (1) Get scripts from our sever
-# run this manually on our server
-# rsync -avFP /bar/yliang/softwares/juicer_on_htcf_myown/*sbatch yonghao@65.254.100.82:/home/yonghao/tricks/juicer_on_htcf_myown # run this manually on our server
-# touch /home/yonghao/tricks/juicer_on_htcf_myown/*
-# run this manually on our server
+#rsync -avFP yliang@10.20.127.3:/bar/yliang/softwares/juicer_on_htcf/ /scratch/twlab/yliang/juicer_scripts
+#rsync -avFP yliang@10.20.127.3:/bar/yliang/softwares/juicer_on_htcf_myown /scratch/twlab/yliang/juicer_scripts_myown # it won't work in this direction anymore
 
-# this won't work in this direction anymore
-##rsync -avFP yliang@10.20.127.3:/bar/yliang/softwares/juicer_on_htcf/ /scratch/twlab/yliang/juicer_scripts
-##rsync -avFP yliang@10.20.127.3:/bar/yliang/softwares/juicer_on_htcf_myown /scratch/twlab/yliang/juicer_scripts_myown 
+# run this manually on our server
+# rsync -avFP /bar/yliang/softwares/juicer_on_htcf_myown_sc/*sbatch yonghao@65.254.100.82:/scratch/twlab/yliang/juicer_on_htcf_myown_sc # run this manually on our server
+# touch /scratch/twlab/yliang/juicer_on_htcf_myown_sc/*sbatch
+# run this manually on our server
 
 # (2) Run juicer on each replicate and clean up (submit job one by one based on the generation of fincin.out)
 cd $INPUT_DIR
-if [[ $ALLTOGETHER == "no" ]]; then
-    for FILE1 in ./fastq/*${READ1EXTENSION}
-    do
-        xbase="$(basename $FILE1 $READ1EXTENSION)"
-        echo $xbase
-        mkdir $xbase $xbase/fastq
-        cd $xbase/fastq
-        ln -s ../../fastq/${xbase}* .
-        cd ..
-        echo "start $xbase juicer run"
-        JUICER=run-juicer-${GENOME}_${ENZYME}.sbatch
-        sbatch /home/yonghao/tricks/juicer_on_htcf_myown/$JUICER $xbase
-        # sbatch /scratch/twlab/yliang/juicer_scripts/run-juicer-hg38.sbatch HiC_93VU147T_HPV_BRep1_TRep1
-        while true; do
-            #FILENAME=`inotifywait -m --quiet --recursive -e create,modify,close,move --format '%f' ./`
-            #if [[ $FILENAME =~ fincln-[0-9]{8}.out ]]; then
-            if [[ `ls ./debug/fincln-*.out > /dev/null 2> /dev/null; echo $?` -eq 0 ]]; then
-                sbatch /home/yonghao/tricks/juicer_on_htcf_myown/run-cleanup.sbatch $xbase
-                # sbatch /scratch/twlab/yliang/juicer_scripts/run-cleanup.sbatch HiC_93VU147T_HPV_BRep1_TRep1
-                echo "$xbase juicer run finished"
-                break
-            fi
-            #if [[ -f "./debug" ]]
-        done
-        cd ..
+for FILE1 in ./fastq/*${READ1EXTENSION}
+do
+    FILE2=${FILE1/R1/R2}
+    xbase="$(basename $FILE1 $READ1EXTENSION)"
+    echo $xbase
+    mkdir $xbase $xbase/fastq
+    cd $xbase/fastq
+    ln -s ../../$FILE1 .
+    ln -s ../../$FILE2 .
+    cd ..
+    echo "start $xbase juicer run"
+    JUICER=run-sc-juicer-${GENOME}_${ENZYME}.sbatch
+    sbatch /scratch/twlab/yliang/juicer_on_htcf_myown_sc/$JUICER $xbase
+    # sbatch /scratch/twlab/yliang/juicer_scripts/run-juicer-hg38.sbatch HiC_93VU147T_HPV_BRep1_TRep1
+    while true; do
+        #echo "start monitor"
+        #FILENAME=`inotifywait --quiet --recursive -e access,open,attrib,close_write,close_nowrite,create,modify,close,move --format '%f' .`
+        #echo $FILENAME
+        if [[ `ls ./debug/fincln-*.out > /dev/null 2> /dev/null; echo $?` -eq 0 ]]; then
+        #if [[ $FILENAME =~ fincln-[0-9]{8}.out ]]; then
+            sbatch /scratch/twlab/yliang/juicer_on_htcf_myown_sc/run-cleanup.sbatch $xbase
+            # sbatch /scratch/twlab/yliang/juicer_scripts/run-cleanup.sbatch HiC_93VU147T_HPV_BRep1_TRep1
+            echo "$xbase juicer run finished"
+            break
+        fi
     done
-else
-    for FILE1 in ./fastq/*${READ1EXTENSION}
-    do
-        xbase="$(basename $FILE1 $READ1EXTENSION)"
-        echo $xbase
-        mkdir $xbase $xbase/fastq
-        cd $xbase/fastq
-        ln -s ../../fastq/${xbase}* .
-        cd ..
-        echo "start $xbase juicer run"
-        JUICER=run-juicer-${GENOME}_${ENZYME}.sbatch
-        sbatch /home/yonghao/tricks/juicer_on_htcf_myown/$JUICER $xbase
-        cd ..
-    done    
-fi
+    cd ..
+done
 
 # (2) Run juicer on each replicate and clean up (submit job one by one based on JOBID. However, Juicer will submit new jobs internally, which makes this not feasible)
 #first_job=1
@@ -167,7 +145,7 @@ fi
 # hic.out will say everything is complete and has a time stamp at the end of the file
 ## after finishing generating .hic file
 # clean up the folder
-# sbatch /home/yonghao/tricks/juicer_on_htcf_myown/run-cleanup.sbatch 
+# sbatch /scratch/twlab/mayank-choudhary/jobs/run-cleanup.batch 
 
 # (3) Make mega map (merging replicates)
 # BRep1
@@ -178,8 +156,8 @@ fi
 # --> BRep1_TRep2
 
 # run it under /BRep1
-# sbatch /home/yonghao/tricks/juicer_on_htcf_myown/run-htcf_mega_hg38_MboI.sbatch .
-# sbatch /home/yonghao/tricks/juicer_on_htcf_myown/run-htcf_mega_mm10_Arima.sbatch .
+# sbatch /scratch/twlab/yliang/juicer_on_htcf_myown_sc/run-htcf_mega_mm10.sbatch .
+
 
 
 

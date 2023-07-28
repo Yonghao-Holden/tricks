@@ -9,6 +9,8 @@
 # https://slurm.schedmd.com/sbatch.html
 # https://hpc.nih.gov/docs/job_dependencies.html
 ###################################################
+# how to run this script:
+# bash /home/yonghao/tricks/wgbs_pipe_htcf_v2b.sh --sample WGBS_JHU029_NEG_BRep2 --genome hg38 --input $PWD --max 12 --pbat no
 
 #########################################################################################################################################################
 ## INPUT
@@ -31,17 +33,8 @@ fi
 LAMBDAGENOMEDIR="/scratch/twlab/yliang/genome/lambda"
 MIN_INSERT=0
 MAX_INSERT=2000
-
-fastqdir=${INPUT_DIR}/fastq
-debugdir=${INPUT_DIR}/debug
-trimdir=${INPUT_DIR}/trimmed
-lambdadir=${INPUT_DIR}/lambda_aligned
-aligndir=${INPUT_DIR}/aligned
-methyldir=${INPUT_DIR}/methylcall
 long_queue="general"
-long_queue_time="10080"
-
-mkdir ${debugdir} ${trimdir} ${lambdadir} ${aligndir} ${methyldir}
+long_queue_time="14400"
 
 #########################################################################################################################################################
 
@@ -87,6 +80,15 @@ echo "sample name: ${SAMPLE}" >> run_info.txt
 echo "fastqfile location: ${INPUT_DIR}/fastq" >> run_info.txt
 echo "read 1 extension: ${READ1EXTENSION}" >> run_info.txt
 echo "reference genome for bismark: ${GENOMEDIR}" >> run_info.txt
+
+fastqdir=${INPUT_DIR}/fastq
+debugdir=${INPUT_DIR}/debug
+trimdir=${INPUT_DIR}/trimmed
+lambdadir=${INPUT_DIR}/lambda_aligned
+aligndir=${INPUT_DIR}/aligned
+methyldir=${INPUT_DIR}/methylcall
+
+mkdir ${debugdir} ${trimdir} ${lambdadir} ${aligndir} ${methyldir}
 
 ## save softwares_version information
 	jid=`sbatch <<- VERSION | egrep -o -e "\b[0-9]+$"
@@ -175,26 +177,29 @@ FASTQC`
 ALIGNLAMBDA`
 
 #dependlambda="afterok:$jid"
+## bismark parameters from Hyungjoo's walking down the pipeline
+## https://github.com/hyungjoo-lee/wgbs/blob/main/2_bismark.sh
 	jid=`sbatch <<- ALIGN | egrep -o -e "\b[0-9]+$"
 	#!/bin/bash -l
 	#SBATCH -p $long_queue
 	#SBATCH -o $debugdir/align-%j.out
 	#SBATCH -e $debugdir/align-%j.err 
 	#SBATCH -t $long_queue_time
-	#SBATCH -c 1
+	#SBATCH -c $MAXJOBSALIGN
 	#SBATCH --ntasks=1
-	#SBATCH --mem-per-cpu=128G
+	#SBATCH --mem=128G
 	#SBATCH -J "4_align_${SAMPLE}"
-	#SBATCH -d $dependtrimming         
+	#SBATCH -d $dependtrimming          
 
 	date
 	ml bismark bwa
+	TMPDIR=${aligndir}/tmp
 	if [[ $PBAT == "no" ]];then
-	    find ${trimdir} -name "*${READ1EXTENSION}" | while read file; do xbase=\\\$(basename \\\$file); echo "bismark --bowtie2 -I $MIN_INSERT -X $MAX_INSERT --multicore "$MAXJOBSALIGN" -N 1 -L 28 --score_min L,0,-0.6 -o ${aligndir} --temp_dir ${aligndir}/tmp --gzip --nucleotide_coverage --genome "$GENOMEDIR" -1 "\\\$file" -2 "\\\${file/R1/R2}" &> ${aligndir}/"\\\$xbase"_bismark_align.log " >> ${aligndir}/2_alignCommands.txt ; done ;
+	    find ${trimdir} -name "*${READ1EXTENSION}" | while read file; do xbase=\\\$(basename \\\$file); echo "bismark --bowtie2 -I $MIN_INSERT -X $MAX_INSERT --multicore "$MAXJOBSALIGN" -N 1 -L 28 --score_min L,0,-0.6 -o ${aligndir} --temp_dir ${aligndir}/tmp --gzip --nucleotide_coverage --genome "$GENOMEDIR" -1 "\\\$file" -2 "\\\${file/R1/R2}" &> ${aligndir}/"\\\$xbase"_bismark_align.log 2> ${aligndir}/"\\\$xbase"_bismark_align.err" >> ${aligndir}/2_alignCommands.txt ; done;
 	else
-	    find ${trimdir} -name "*${READ1EXTENSION}" | while read file; do xbase=\\\$(basename \\\$file); echo "bismark -q -I $MIN_INSERT -X $MAX_INSERT --parallel 2 -p 4 --bowtie2 -N 1 -L 28 --score_min L,0,-0.6 --pbat -o ${aligndir} --nucleotide_coverage $GENOMEDIR -1 \\\$file -2 \\\${file/R1/R2} &> ${aligndir}/"\\\$xbase"_bismark_align.log " >> ${aligndir}/2_alignCommands.txt ; done ;
+	    find ${trimdir} -name "*${READ1EXTENSION}" | while read file; do xbase=\\\$(basename \\\$file); echo "bismark -q -I $MIN_INSERT -X $MAX_INSERT --parallel 2 -p 4 --bowtie2 -N 1 -L 28 --score_min L,0,-0.6 --pbat -o ${aligndir} --nucleotide_coverage $GENOMEDIR -1 \\\$file -2 \\\${file/R1/R2} &> ${aligndir}/"\\\$xbase"_bismark_align.log 2> ${aligndir}/"\\\$xbase"_bismark_align.err" >> ${aligndir}/2_alignCommands.txt ; done ;
 	fi
-	parallel_GNU -j 1 < ${aligndir}/2_alignCommands.txt
+	parallel_GNU -j 1 < ${aligndir}/2_alignCommands.txt 2> $debugdir/align-parrallel_GNU.err &> $debugdir/align-parrallel_GNU.out 
 	date
 ALIGN`
 

@@ -13,7 +13,7 @@ import multiprocess as mp
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--input", help = "input file", type = str, default="yo")
-parser.add_argument("--tool", help = "tool used to generate this gtf file (stringtie, gencode, taco)", type = str, default="stringtie") 
+parser.add_argument("--tool", help = "tool used to generate this gtf file (stringtie, gencode, taco, cufflinks)", type = str, default="stringtie") 
 
 args = parser.parse_args()
 
@@ -33,6 +33,10 @@ def main():
 	elif input_type == "taco":
 		gtf_to_refbed_taco(input_file)
 
+	elif input_type == "cufflinks":
+		gtf_to_refbed_cufflinks(input_file)
+
+	subprocess.run("rm "+input_gtf_file.replace("gtf", "refbed"), shell=True)
 
 def get_simplified_transcript_type(transcript_type):
 	transcript_type_list_coding = ["IG_C_gene", "IG_D_gene", "IG_J_gene", "IG_V_gene", "TR_C_gene", "TR_D_gene", "TR_J_gene", "TR_V_gene", "polymorphic_pseudogene", "protein_coding", "IG_LV_gene"]
@@ -61,7 +65,6 @@ def gtf_to_refbed(input_gtf_file):
 
 	output_refbed_file = input_gtf_file.replace("gtf", "refbed")
 	input_data = {}
-	refbed_data = {}
 
 	useful_info = ["transcript", "exon", "start_codon", "stop_codon"]
 
@@ -88,18 +91,18 @@ def gtf_to_refbed(input_gtf_file):
 				except:
 					transcript_type = "coding"
 				if entry[2] == "transcript":
-					input_data[transcript_id] = [[entry[0], entry[3], entry[4], entry[3], entry[4], entry[6], gene_name, transcript_id, transcript_type],[],[],[detail_info]]
+					input_data[transcript_id] = [[entry[0], str(int(entry[3])-1), entry[4], entry[3], entry[4], entry[6], gene_name, transcript_id, transcript_type],[],[],[detail_info]]
 				elif entry[2] == "exon":
-					input_data[transcript_id][1].append(entry[3])
+					input_data[transcript_id][1].append(str(int(entry[3])-1))
 					input_data[transcript_id][2].append(entry[4])
 				elif entry[2] == "start_codon":
-					input_data[transcript_id][0][3] = entry[3]
+					input_data[transcript_id][0][3] = str(int(entry[3])-1)
 				elif entry[2] == "stop_codon":
 					input_data[transcript_id][0][4] = str(int(entry[3])-1)
 
-	with open(output_refbed_file, 'w') as output_file:	
+	with open(output_refbed_file, 'w') as output_file:
 		for transcript_id in input_data:
-			output_file.write('\t'.join(input_data[transcript_id][0] + [','.join(input_data[transcript_id][1])] + [','.join(input_data[transcript_id][2])] + input_data[transcript_id][3])+'\n')
+			output_file.write('\t'.join(input_data[transcript_id][0] + [','.join(sorted(input_data[transcript_id][1]))] + [','.join(sorted(input_data[transcript_id][2]))] + input_data[transcript_id][3])+'\n')
 
 	subprocess.run("sort -k1,1 -k2,2n "+ str(output_refbed_file) +" | bgzip > "+ str(output_refbed_file) +".sorted.gz", shell=True)
 	subprocess.run("tabix -p bed "+ str(output_refbed_file) +".sorted.gz", shell=True)
@@ -113,10 +116,8 @@ def gtf_to_refbed_taco(input_gtf_file):
 
 	output_refbed_file = input_gtf_file.replace("gtf", "refbed")
 	input_data = {}
-	refbed_data = {}
 
 	useful_info = ["transcript", "exon"]
-	transcript_count = 0
 
 	with open(input_gtf_file, 'r') as input_file:
 		for line in input_file:
@@ -124,15 +125,12 @@ def gtf_to_refbed_taco(input_gtf_file):
 			detail_info = entry[8]
 			if entry[2] in useful_info:
 				transcript_id = detail_info.split("transcript_id \"")[1].split("\";")[0]
-				locus_id = detail_info.split("locus_id \"")[1].split("\";")[0]
 				gene_name = detail_info.split("gene_id \"")[1].split("\";")[0]
-				transcript_id = transcript_id +"."+locus_id
 				transcript_type = "coding"
 				if entry[2] == "transcript":
-					transcript_count+=1 
-					input_data[transcript_id] = [[entry[0], entry[3], entry[4], entry[3], entry[4], entry[6], gene_name, transcript_id, transcript_type],[],[],[detail_info]]
+					input_data[transcript_id] = [[entry[0], str(int(entry[3])-1), entry[4], entry[3], entry[4], entry[6], gene_name, transcript_id, transcript_type],[],[],[detail_info]]
 				elif entry[2] == "exon":
-					input_data[transcript_id][1].append(entry[3])
+					input_data[transcript_id][1].append(str(int(entry[3])-1))
 					input_data[transcript_id][2].append(entry[4])
 
 	with open(output_refbed_file, 'w') as output_file:	
@@ -141,6 +139,63 @@ def gtf_to_refbed_taco(input_gtf_file):
 
 	subprocess.run("sort -k1,1 -k2,2n "+ str(output_refbed_file) +" | bgzip > "+ str(output_refbed_file) +".sorted.gz", shell=True)
 	subprocess.run("tabix -p bed "+ str(output_refbed_file) +".sorted.gz", shell=True)
+
+
+def gtf_to_refbed_cufflinks(input_gtf_file):
+	## only have exon, not transcript feature
+	output_refbed_file = input_gtf_file.replace("gtf", "refbed")
+	input_data = {}
+
+	with open(input_gtf_file, 'r') as input_file:
+		for line in input_file:
+			entry = line.strip('\n').split('\t')
+			detail_info = entry[8]
+			if entry[2] == "exon":
+				transcript_id = detail_info.split("transcript_id \"")[1].split("\";")[0]
+				try:
+					gene_name = detail_info.split("gene_name \"")[1].split("\";")[0]
+				except:
+					gene_name = detail_info.split("gene_id \"")[1].split("\";")[0]
+				transcript_type = "coding"
+				if transcript_id not in input_data:
+					input_data[transcript_id] = [[entry[0], str(int(entry[3])-1), entry[4], entry[3], entry[4], entry[6], gene_name, transcript_id, transcript_type],[],[],[detail_info]]
+				input_data[transcript_id][1].append(str(int(entry[3])-1))
+				input_data[transcript_id][2].append(entry[4])
+
+	with open(output_refbed_file, 'w') as output_file:	
+		for transcript_id in input_data:
+			input_data[transcript_id][0][1] = min(input_data[transcript_id][1])
+			input_data[transcript_id][0][2] = max(input_data[transcript_id][2])
+			input_data[transcript_id][0][3] = min(input_data[transcript_id][1])
+			input_data[transcript_id][0][4] = max(input_data[transcript_id][2])
+			output_file.write('\t'.join(input_data[transcript_id][0] + [','.join(sorted(input_data[transcript_id][1]))] + [','.join(sorted(input_data[transcript_id][2]))] + input_data[transcript_id][3])+'\n')
+
+	subprocess.run("sort -k1,1 -k2,2n "+ str(output_refbed_file) +" | bgzip > "+ str(output_refbed_file) +".sorted.gz", shell=True)
+	subprocess.run("tabix -p bed "+ str(output_refbed_file) +".sorted.gz", shell=True)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 main()

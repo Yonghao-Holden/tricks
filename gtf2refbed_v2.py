@@ -38,7 +38,10 @@ def gtf_to_refbed(input_gtf_file):
 				entry = line.strip('\n').split('\t')
 				detail_info = entry[8]
 				if entry[2] == "transcript" or entry[2] == "exon":
-					gene_id = detail_info.split("gene_id \"")[1].split("\";")[0]
+					try:
+						gene_id = detail_info.split("gene_id \"")[1].split("\";")[0]
+					except:
+						gene_id = "."
 					transcript_id = detail_info.split("transcript_id \"")[1].split("\";")[0]
 				if entry[2] == "transcript":
 					if transcript_id in input_data:

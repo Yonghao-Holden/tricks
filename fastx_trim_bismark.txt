@@ -1,0 +1,51 @@
+#!/bin/bash -e
+#SBATCH --mem=100G
+#SBATCH --cpus-per-task=8
+#SBATCH --array=1-12%12
+
+cd /scratch/twlab/jjang/TE_antigen/WGBS
+
+ml fastx_toolkit
+ml bismark
+ml bwa
+ml samtools
+
+read part1 part2 part3 part4 < <( sed -n ${SLURM_ARRAY_TASK_ID}p /scratch/twlab/jjang/TE_antigen/WGBS/WGBS_sample.txt )
+
+gunzip -c ./trimmedreads/${part1}'_R1_val_1.fq.gz' | fastx_trimmer -f 10 -l 150 -Q33 -z -o ./trimmedreads/fastx_trim/${part1}'_R1_fastxtrimmed.fq.gz'
+gunzip -c ./trimmedreads/${part1}'_R2_val_2.fq.gz' | fastx_trimmer -f 16 -l 150 -Q33 -z -o ./trimmedreads/fastx_trim/${part1}'_R2_fastxtrimmed.fq.gz'
+
+#bismark --unmapped --bowtie2 -N 1 --score_min L,0,-0.2 -o ./aligned /scratch/twlab/hlee/genomes/hg38/bismark -1 ./trimmedreads/fastx_trim/${part1}'_R1_fastxtrimmed.fq.gz' -2 ./trimmedreads/fastx_trim/${part1}'_R2_fastxtrimmed.fq.gz'
+#deduplicate_bismark -p --bam ./aligned/${part1}'_R1_fastxtrimmed_bismark_bt2_pe.bam'
+#bismark_methylation_extractor -p --no_overlap --comprehensive --bedgraph --counts --no_header --report -o ./methylcall --genome_folder /scratch/twlab/hlee/genomes/hg38/bismark ./aligned/${part1}'_R1_fastxtrimmed_bismark_bt2_pe.deduplicated.bam'
+
+genome_dir=/scratch/twlab/hlee/genomes/hg38/bismark
+min_insert=0
+max_insert=2000
+CPU=8
+outdir=/scratch/twlab/jjang/TE_antigen/WGBS/aligned
+inputR1=/scratch/twlab/jjang/TE_antigen/WGBS/trimmedreads/fastx_trim/${part1}'_R1_fastxtrimmed.fq.gz'
+inputR2=/scratch/twlab/jjang/TE_antigen/WGBS/trimmedreads/fastx_trim/${part1}'_R2_fastxtrimmed.fq.gz'
+bam=${outdir}/${part1}_R1_fastxtrimmed_bismark_bt2_pe.bam
+log_dedup=${outdir}/${part1}.deduplicate_bismark.log
+outdir2=/scratch/twlab/jjang/TE_antigen/WGBS/methylcall
+bam_dedup=${outdir}/${part1}_R1_fastxtrimmed_bismark_bt2_pe.deduplicated.bam
+log_methx=${outdir2}/${part1}.bismark_methylation_extractor.log
+
+
+echo $part1
+echo $genome_dir
+echo $inputR1
+echo "-- 1. Mapping to reference with bismark/bowtie2... started on $(date)"
+echo ""
+echo ""
+
+bismark -I $min_insert -X $max_insert --parallel $CPU -o $outdir --temp_dir ./tmp --gzip --nucleotide_coverage $genome_dir -1 $inputR1 -2 $inputR2 &>/scratch/twlab/jjang/TE_antigen/WGBS/aligned/${part1}'_bismark.log'
+
+echo "-- 2. Duduplicating aligned reads... started on $(date)"
+
+deduplicate_bismark -p --output_dir $outdir --bam $bam &>$log_dedup
+
+echo "-- 3. Analyse methylation in $bam_dedup using $CPU threads... started on $(date)"
+
+bismark_methylation_extractor --paired-end --no_overlap --comprehensive --merge_non_CpG --report -o $outdir2 --gzip --parallel $CPU $bam_dedup &>$log_methx

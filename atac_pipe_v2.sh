@@ -188,7 +188,7 @@ parallel_GNU -j $MAXJOBS <  16_fragDistCommands.txt 2> 16_fragDistCommands.err &
 
 echo "(17/17) MultiQC Commands"
 cd ..
-multiqc .
+/bar/yliang/anaconda3/bin/multiqc .
 
 mv multiqc_report.html $(basename "$PWD").multiqc_report.html
 

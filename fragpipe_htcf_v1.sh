@@ -119,3 +119,4 @@ jid=`sbatch <<- PHILOSOPHER | egrep -o -e "\b[0-9]+$"
 	date
 PHILOSOPHER`
 
+# rm -rf ./params ./philosopher* ./*xml ./*tsv ./*err ./*out ./unique* */*tsv */interact* */*pepXML */*fas */.meta ./.meta

@@ -128,6 +128,8 @@ echo "(9/10) multiQC"
 
 /bar/yliang/anaconda3/bin/multiqc .
 
+mv multiqc_report.html $(basename "$PWD").multiqc_report.html
+
 if [[ $QUANTIFICATION == "yes" ]]
 then
     mkdir quantification

@@ -5,7 +5,7 @@
 library('Xmisc')
 library("data.table")
 library("preprocessCore")
-library("dplyr")
+library("dbplyr")
 
 # Default parameters
 
